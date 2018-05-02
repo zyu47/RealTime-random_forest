@@ -5,7 +5,7 @@ from . import streams
 
 _KINECT_DEST_ADDR = 'cwc1'
 
-_FUSION_DEST_ADDR = 'cyan'
+_FUSION_DEST_ADDR = 'yellow'
 _FUSION_SRC_ADDR = ''
 
 _GUI_DEST_ADDR = _FUSION_DEST_ADDR

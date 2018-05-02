@@ -92,34 +92,6 @@ def check_wave_motion(data, rgb):
         return False
 
 
-
-
-def check_active_arm(data, rgb):
-    dims = 2 if rgb else 3
-    # y_axis = np.array([0, 1]) if rgb else np.array([0, 1, 0])
-    # ref_y, ref_z = -0.582, 1.6
-    SPINE_BASE = 4
-    avg = np.mean(data[:, [SPINE_BASE*3, SPINE_BASE*3+1, SPINE_BASE*3+2]], axis=0)
-    ref_y, ref_z = avg[1], avg[2]
-
-    first_shoulder = data[0][(0 * dims):(1 * dims)]
-    first_wrist = data[0][(2*dims):(3*dims)]
-    last_shoulder = data[-1][(0 * dims):(1 * dims)]
-    last_wrist = data[-1][(2 * dims):(3 * dims)]
-
-    threshold_z = 0.08#0.090
-    # print np.abs(first_shoulder[-1] - ref_z), np.abs(last_shoulder[-1] - ref_z)
-    if np.abs(first_wrist[-1] - ref_z)> threshold_z and np.abs(last_wrist[-1] - ref_z)>threshold_z:
-        # print 'Active'
-        return True
-    else:
-        # print 'Dangling'
-        return False
-
-
-
-
-
 def calculate_direction(data, body_part, rgb):
     if (body_part=='RA')or(body_part=='LA'):
         arm_motion_array = right_arm_motions if body_part =='RA' else left_arm_motions
@@ -221,6 +193,44 @@ def send_default_values(body_parts, value_to_add= 26):
     encoding_array.append(4)
     return encoding_array, active_arm_array, proba_array
 
+
+
+
+def check_active_arm(data, rgb):
+    dims = 2 if rgb else 3
+    y_axis = np.array([0, 1]) if rgb else np.array([0, 1, 0])
+    # ref_y, ref_z = -0.582, 1.6
+    SPINE_BASE = 4
+    avg = np.mean(data[:, [SPINE_BASE*3, SPINE_BASE*3+1, SPINE_BASE*3+2]], axis=0)
+    ref_y, ref_z = avg[1], avg[2]
+
+    first_shoulder = data[0][(0 * dims):(1 * dims)]
+    first_elbow = data[0][(1 * dims):(2 * dims)]
+    first_wrist = data[0][(2*dims):(3*dims)]
+
+    first_shoulder_elbow = (first_elbow - first_shoulder)/np.linalg.norm((first_elbow - first_shoulder))
+    first_elbow_wrist = (first_wrist - first_elbow) / np.linalg.norm((first_wrist - first_elbow))
+    first_shoulder_elbow_angle = 180 - np.degrees(np.arccos(np.dot(first_shoulder_elbow, y_axis)))
+    first_elbow_wrist_angle = 180 - np.degrees(np.arccos(np.dot(first_elbow_wrist, y_axis)))
+
+
+    last_shoulder = data[-1][(0 * dims):(1 * dims)]
+    last_elbow = data[-1][(1 * dims):(2 * dims)]
+    last_wrist = data[-1][(2 * dims):(3 * dims)]
+
+    last_shoulder_elbow = (last_elbow - last_shoulder) / np.linalg.norm((last_elbow - last_shoulder))
+    last_elbow_wrist = (last_wrist - last_elbow) / np.linalg.norm((last_wrist - last_elbow))
+    last_shoulder_elbow_angle = 180 - np.degrees(np.arccos(np.dot(last_shoulder_elbow, y_axis)))
+    last_elbow_wrist_angle = 180 - np.degrees(np.arccos(np.dot(last_elbow_wrist, y_axis)))
+
+
+
+    if (first_shoulder_elbow_angle < 30) and (first_elbow_wrist_angle < 30) and (last_shoulder_elbow_angle<30) and (last_elbow_wrist_angle<30):
+        #Dangling Arm
+        return False
+    else:
+        #Active arm
+        return True
 
 
 

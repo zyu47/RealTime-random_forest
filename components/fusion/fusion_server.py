@@ -201,9 +201,10 @@ class App:
         engaged, high_pose, low_pose = self._get_pose_vectors()
         if streams.is_active("Body"):
             body_msg = self.latest_s_msg["Body"]
-            lx, ly, rx, ry = body_msg.data.pos_l_x, body_msg.data.pos_l_y, body_msg.data.pos_r_x, body_msg.data.pos_r_y
+            lx, ly, var_l = body_msg.data.pos_l_x, body_msg.data.pos_l_y, body_msg.data.var_l
+            rx, ry, var_r = body_msg.data.pos_r_x, body_msg.data.pos_r_y, body_msg.data.var_r
         else:
-            lx, ly, rx, ry = (float("-inf"),)*4
+            lx, ly, var_l, rx, ry, var_r = (float("-inf"),)*6
 
         word = self.latest_s_msg["Speech"].data.command if streams.is_active("Speech") else ""
 
@@ -222,10 +223,10 @@ class App:
             # and is in start state, append pointer message contents to the sent message
             if state_machine is bsm.left_continuous_point:
                 if state_machine.is_started():
-                    all_events_to_send.append("P;l,{0:.2f},{1:.2f};{2:s}".format(lx, ly, ts))
+                    all_events_to_send.append("P;l,{0:.2f},{1:.2f};{2:.2f};{3:s}".format(lx, ly, var_l, ts))
             elif state_machine is bsm.right_continuous_point:
                 if state_machine.is_started():
-                    all_events_to_send.append("P;r,{0:.2f},{1:.2f};{2:s}".format(rx, ry, ts))
+                    all_events_to_send.append("P;r,{0:.2f},{1:.2f};{2:.2f};{3:s}".format(rx, ry, var_r, ts))
             # Else, check if current input caused a transition
             elif changed:
                 # For the special case of binary state machines for left point vec and right point vec

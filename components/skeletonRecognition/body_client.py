@@ -141,6 +141,7 @@ def recv_skeleton_frame(sock):
 
 import struct
 import sys
+import argparse
 from collections import deque
 from BackEnd import *
 from ..fusion.conf.endpoints import connect
@@ -196,12 +197,33 @@ def recv_skeleton_frame(sock):
     return recv_all(sock, load_size)
 
 
+def validate_arguments(args):
+    if (args.kinect_host is None):
+        print ('No kinect host specified...Exiting from system')
+        sys.exit()
+    if (args.fusion_host is None):
+        print ('Fusion host not specified, taking default None value')
+    else:
+        print 'Fusion host connected to: ', args.fusion_host
+    print 'Pointing mode: ', args.pointing_mode
+
 
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--kinect_host', help='Kinect host name')
+    parser.add_argument('--fusion_host', default=None, help='Fusion host name, default set to None')
+    parser.add_argument('--pointing_mode', default='screen', help='Pointing mode, default set to screen')
+
+    args = parser.parse_args()
+    validate_arguments(args)
+    kinect_host, fusion_host, pointing_mode  = args.kinect_host, args.fusion_host, args.pointing_mode
+
+
     rgb = False
     lstm = False
+    dims = 2 if rgb else 3
     feature_size = 10 if rgb else 21
     logpath = '/s/red/a/nobackup/vision/dkpatil/demo/GRU_5_class/'
     class_list = np.load(logpath+'labels_list.npy')
@@ -254,21 +276,39 @@ if __name__ == '__main__':
         fd = decode_frame(f)
         timestamp, frame_type, body_count, engaged = fd[:4]
 
+
+
+        #Skeleton Box construction
+        #If enagaged skeleton received, we further filter skeleton on x coordinates and update flag
+        if engaged:
+            #Assumption: rgb=False, dimensions available: 3
+            input_data = (timestamp, body_count) + fd[4:]
+            frame_data = extract_data([frame], rgb)
+            print frame_data.shape
+            sb_x = frame_data[0]
+            if left_x<sb_x<right_x:
+                pass
+            else:
+                engaged = False
+
+
         if engaged:engaged_bit = 'Engaged'
-        else: engaged_bit = 'Disengaged'
+        else:engaged_bit = 'Disengaged'
 
 
-        input_data = (timestamp, body_count) + fd[4:]
 
         if rgb:
             lpoint, rpoint = [0.0, 0.0], [0.0, 0.0]
+            lvar, rvar = [0.0, 0.0], [0.0, 0.0]
         else:
             if wave_flag:
-                point.get_pointing_main(fd)
+                point.get_pointing_main(fd, pointing_mode=pointing_mode)
                 lpoint, rpoint = point.lpoint, point.rpoint
+                lvar, rvar = point.lpoint_var, point.rpoint_var
 
             else:
                 lpoint, rpoint = [0.0, 0.0], [0.0, 0.0]
+                lvar, rvar = [0.0, 0.0], [0.0, 0.0]
 
 
         if engaged:
@@ -297,12 +337,11 @@ if __name__ == '__main__':
                     proba_array.append(probabilities)
 
 
-
-
                 for body_part in body_parts:
                     pruned_data = prune_joints(data, body_part=body_part, rgb=rgb)
                     active_arm = check_active_arm(pruned_data, rgb=rgb)  # Confirm shoulder-elbow or shoulder-wrist and return respectively
-                    # print body_part, active_arm
+                    # print body_part, 'Active' if active_arm else 'Dangling'
+
 
                     if wave_flag:
                         active_arm = check_active_arm(pruned_data, rgb=rgb) #Confirm shoulder-elbow or shoulder-wrist and return respectively
@@ -343,7 +382,7 @@ if __name__ == '__main__':
                 encoding_array, active_arm_array, proba_array = send_default_values(body_parts)
 
 
-            result = collect_all_results(encoding_array, [lpoint, rpoint], proba_array, int(engaged))
+            result = collect_all_results(encoding_array, [lpoint,lvar, rpoint, rvar], proba_array, int(engaged))
             timestamp = list(data_stream)[-1][0]
 
         else:
@@ -351,14 +390,14 @@ if __name__ == '__main__':
             # print 'Disengaged....clearing buffer'
             #Blind (31) when disengaged
             encoding_array, active_arm_array, proba_array = send_default_values(body_parts, value_to_add=32)
-            result = collect_all_results(encoding_array, [lpoint, rpoint], proba_array, int(engaged))
+            result = collect_all_results(encoding_array, [lpoint,lvar, rpoint, rvar], proba_array, int(engaged))
             data_stream.clear()
 
 
-        assert len(result) == 25
+        assert len(result) == 29
         # print 'Length of result is: ', len(result)
         pack_list = [streams.get_stream_id("Body"), timestamp] + result
-        raw_data = struct.pack("<iqiii" + "ff" * 2 + "f" * 5 + "ff" * 6 + 'i', *pack_list)
+        raw_data = struct.pack("<iqiii" + "ffff" * 2 + "f" * 5 + "ff" * 6 + 'i', *pack_list)
 
 
 
@@ -368,11 +407,12 @@ if __name__ == '__main__':
         if to_print_result==['blind', 'blind', 'still']:
             pass
         else:
-            print 'Result is: ', result[:7], to_print_result
+            print 'Result is: ', result#[7:15], to_print_result
 
 
         if r is not None:
             r.sendall(raw_data)
+
 
 
         count += 1

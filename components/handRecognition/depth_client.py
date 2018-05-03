@@ -24,7 +24,7 @@ def decode_frame(raw_frame):
     header = struct.unpack(endianness + header_format, raw_frame[:header_size])
 
     timestamp, frame_type, width, height, posx, posy = header
-    print timestamp, frame_type, width, height, posx, posy
+    # print timestamp, frame_type, width, height, posx, posy
 
     depth_data_format = str(width * height) + "H"
 
@@ -88,13 +88,14 @@ if __name__ == '__main__':
 
         timestamp, frame_type, width, height, posx, posy, depth_data = decode_frame(frame)
 
-        probs = [0] * num_gestures + [1]  # final probabilities to send to fusion
+        probs = [0] * num_gestures  # probabilities to send to fusion
 
         if posx == -1 and posy == -1:
+            probs += [1]
             max_index = len(probs)-1
         else:
             hand = np.array(depth_data, dtype=np.float32).reshape((height, width))
-            print hand.shape, posx, posy
+            # print hand.shape, posx, posy
             posz = hand[int(posx), int(posy)]
             hand -= posz
             hand /= 150
@@ -102,14 +103,16 @@ if __name__ == '__main__':
             hand = resize(hand, (168, 168))
             hand = hand[20:-20, 20:-20]
             hand = hand.reshape((1, 128, 128, 1))
-            if hand == 'RH':
+            if sys.argv[1] == 'RH':
                 feature = hand_classfier.classify(hand, hands='RH')
-                max_index, dist = forest.find_nn(feature)
-                probs[max_index] = 0.5 - dist/2.0
+                found_index, dist = forest.find_nn(feature)
+                max_index = found_index[0]
+                probs[max_index] = 1
+                # print(probs)
             else:
                 max_index, probs = hand_classfier.classify(hand)
 
-                probs = list(probs)+[0]
+            probs = list(probs)+[0]
 
         print i, timestamp, gestures[max_index], probs[max_index]
         i += 1
@@ -118,7 +121,7 @@ if __name__ == '__main__':
             print "="*100, "FPS", 100/(time.time()-start_time)
             start_time = time.time()
 
-        pack_list = [stream_id, timestamp,max_index]+list(probs)
+        pack_list = [stream_id, timestamp, max_index]+list(probs)
 
         bytes = struct.pack("<iqi"+"f"*(num_gestures+1), *pack_list)
 

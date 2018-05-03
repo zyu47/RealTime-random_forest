@@ -2,7 +2,7 @@
 
 function print_usage
 {
-    echo -e "\nUsage: start.sh [-h|--help] [-e|--env <virtual_env>] [-c|--conf <machine_specification> default:machines.bak] [-s|--single-machine default:no]\n"
+    echo -e "\nUsage: start.sh [-h|--help] [-e|--env <virtual_env>] [-c|--conf <machine_specification> default:machines.bak] [-s|--single-machine default:no] [-p|--pointing-mode <table|screen> default:screen] \n"
 }
     
 # full path to directory where start.sh resides
@@ -10,13 +10,14 @@ start_dir=$(dirname "$0")
 start_dir=$(realpath "$start_dir")
 
 # parse arguments with getopt
-my_args=$(getopt -o he:c:s -l help,env:,conf:,single-machine -n 'start.sh' -- "$@")
+my_args=$(getopt -o he:c:sp: -l help,env:,conf:,single-machine,pointing-mode: -n 'start.sh' -- "$@")
 eval set -- "$my_args"
 
 # default values
 env_dir=""
 single_machine=no
 machine_spec="$start_dir/machines.bak"
+pointing_mode=""
 
 while true
 do
@@ -50,8 +51,15 @@ do
             ;;
             
         -s|--single-machine)
-            single_machine=yes ; shift ;;
-        
+            single_machine=yes
+            shift
+            ;;
+            
+        -p|--pointing-mode)
+            pointing_mode="$2"
+            shift 2
+            ;;
+                
         --) shift ; break ;;
         
         *) print_usage ; exit 1 ;;
@@ -59,15 +67,21 @@ do
 done
 
 
-if [ "$env_dir" = "" ]
+if [ -z "$env_dir" ]
 then
     echo "Virtual environment: none (user/system packages)"
 else
     echo "Virtual environment: $env_dir"
 fi
 
+if [ -z "$pointing_mode" ]
+then
+    pointing_mode=screen
+fi
+
 echo "Single machine: $single_machine"
 echo "Machine spec: $machine_spec"
+echo "Pointing mode: $pointing_mode"
 
 echo ""
 
@@ -110,7 +124,7 @@ do
             params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; python -m components.speech.speech_client; bash;'\" --title ${i}"
             ;;
         "body")
-            params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; export CUDA_VISIBLE_DEVICES=${device}; if [ ! -z ${env_dir} ]; then source ${env_dir}/bin/activate; fi; python -m components.skeletonRecognition.body_client; bash;'\" --title ${i}"
+            params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; export CUDA_VISIBLE_DEVICES=${device}; if [ ! -z ${env_dir} ]; then source ${env_dir}/bin/activate; fi; python -m components.skeletonRecognition.body_client --pointing-mode $pointing_mode ; bash;'\" --title ${i}"
             if [ "$single_machine" = yes ]
             then
                 ((device++))

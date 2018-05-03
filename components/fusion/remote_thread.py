@@ -46,9 +46,9 @@ class Remote(threading.Thread):
                 self._log("Problem in the server socket. Stopping ...")
                 sys.exit(0)
 
-            for s in read_socks:
-                if s is remote_sock:
-                    client_sock, client_addr = s.accept()
+            for rs in read_socks:
+                if rs is remote_sock:
+                    client_sock, client_addr = rs.accept()
                     self._log("Accepted destination {}:{}".format(client_addr[0], client_addr[1]))
                     client_sock.shutdown(socket.SHUT_RD)
                     outputs += [client_sock]
@@ -59,12 +59,13 @@ class Remote(threading.Thread):
                 try:
                     data = self.input_queue.get_nowait()
 
-                    for s in write_socks:
+                    for ws in write_socks:
                         try:
-                            client_addr = s.getpeername()
-                            s.sendall(data)
+                            client_addr = ws.getpeername()
+                            ws.sendall(data)
                         except (socket.error, EOFError):
-                            outputs.remove(s)
+                            if ws in outputs:
+                                outputs.remove(ws)
                             if len(outputs) == 0:
                                 self._conn.clear()
                             self._log("{}:{} disconnected".format(client_addr[0], client_addr[1]))

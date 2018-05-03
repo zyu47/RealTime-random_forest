@@ -4,7 +4,7 @@ function print_usage
 {
     echo -e "\nUsage: start.sh [-h|--help] [-e|--env <virtual_env>] [-c|--conf <machine_specification> default:machines.bak] [-s|--single-machine default:no]\n"
 }
-    
+
 # full path to directory where start.sh resides
 start_dir=$(dirname "$0")
 start_dir=$(realpath "$start_dir")
@@ -21,12 +21,12 @@ machine_spec="$start_dir/machines.bak"
 while true
 do
     case "$1" in
-    
+
         -h|--help)
             print_usage
             exit 0
             ;;
-        
+
         -e|--env)
             if [ -d "$2" ]
             then
@@ -37,7 +37,7 @@ do
                 exit 1
             fi
             ;;
-            
+
         -c|--conf)
             if [ -e "$2" ]
             then
@@ -48,12 +48,12 @@ do
                 exit 1
             fi
             ;;
-            
+
         -s|--single-machine)
             single_machine=yes ; shift ;;
-        
+
         --) shift ; break ;;
-        
+
         *) print_usage ; exit 1 ;;
     esac
 done
@@ -110,7 +110,7 @@ do
             params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; source activate py27gpu; python -m components.speech.speech_client; bash;'\" --title ${i}"
             ;;
         "body")
-            params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; source activate py27gpu; export CUDA_VISIBLE_DEVICES=${device}; python -m components.skeletonRecognition.body_client; bash;'\" --title ${i}"
+            params="$params --tab -e \"ssh -t ${machine} 'cd ${start_dir}; sleep 3; source activate py27gpu; export CUDA_VISIBLE_DEVICES=${device}; python -m components.skeletonRecognition.body_client --pointing-mode screen; bash;'\" --title ${i}"
             if [ "$single_machine" = yes ]
             then
                 ((device++))

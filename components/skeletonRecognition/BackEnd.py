@@ -210,8 +210,7 @@ def check_active_arm(data, rgb):
 
     first_shoulder_elbow = (first_elbow - first_shoulder)/np.linalg.norm((first_elbow - first_shoulder))
     first_elbow_wrist = (first_wrist - first_elbow) / np.linalg.norm((first_wrist - first_elbow))
-    first_shoulder_elbow_angle = 180 - np.degrees(np.arccos(np.dot(first_shoulder_elbow, y_axis)))
-    first_elbow_wrist_angle = 180 - np.degrees(np.arccos(np.dot(first_elbow_wrist, y_axis)))
+    # first_shoulder_elbow_wrist = np.degrees(np.arccos(np.dot(first_shoulder_elbow, first_elbow_wrist)))
 
 
     last_shoulder = data[-1][(0 * dims):(1 * dims)]
@@ -220,17 +219,24 @@ def check_active_arm(data, rgb):
 
     last_shoulder_elbow = (last_elbow - last_shoulder) / np.linalg.norm((last_elbow - last_shoulder))
     last_elbow_wrist = (last_wrist - last_elbow) / np.linalg.norm((last_wrist - last_elbow))
-    last_shoulder_elbow_angle = 180 - np.degrees(np.arccos(np.dot(last_shoulder_elbow, y_axis)))
-    last_elbow_wrist_angle = 180 - np.degrees(np.arccos(np.dot(last_elbow_wrist, y_axis)))
+    # last_shoulder_elbow_wrist = np.degrees(np.arccos(np.dot(last_shoulder_elbow, last_elbow_wrist)))
+
+    # print first_shoulder_elbow_wrist, last_shoulder_elbow_wrist
+    # if 30>first_shoulder_elbow_wrist>-30 and 30>last_shoulder_elbow_wrist>-30:
+    #     return False
+    # else:
+    #     return True
 
 
-
-    if (first_shoulder_elbow_angle < 30) and (first_elbow_wrist_angle < 30) and (last_shoulder_elbow_angle<30) and (last_elbow_wrist_angle<30):
-        #Dangling Arm
-        return False
-    else:
-        #Active arm
+    threshold_z = 0.08  # 0.090
+    # print np.abs(first_shoulder[-1] - ref_z), np.abs(last_shoulder[-1] - ref_z)
+    if np.abs(first_wrist[-1] - ref_z) > threshold_z and np.abs(last_wrist[-1] - ref_z) > threshold_z:
+        # print 'Active'
         return True
+    else:
+        # print 'Dangling'
+        return False
+
 
 
 

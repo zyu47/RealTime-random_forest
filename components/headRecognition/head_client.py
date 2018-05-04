@@ -9,12 +9,12 @@ from realtime_head_recognition import RealTimeHeadRecognition
 from ..fusion.conf.endpoints import connect
 from ..fusion.conf import streams
 
-# Timestamp | frame type | width | height | depth_data
+# Timestamp | frame_hand type | width | height | depth_data
 def decode_frame(raw_frame):
     # Expect little endian byte order
     endianness = "<"
 
-    # In each frame, a header is transmitted
+    # In each frame_hand, a header is transmitted
     header_format = "qiiiff"
     header_size = struct.calcsize(endianness + header_format)
     header = struct.unpack(endianness + header_format, raw_frame[:header_size])
@@ -40,7 +40,7 @@ def recv_all(sock, size):
 
 def recv_depth_frame(sock):
     """
-    Experimental function to read each stream frame from the server
+    Experimental function to read each stream frame_hand from the server
     """
     (frame_size,) = struct.unpack("<i", recv_all(sock, 4))
     return recv_all(sock, frame_size)
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             t_end = time.time()
         except:
             break
-        #print "Time taken for this frame: {}".format(t_end - t_begin)
+        #print "Time taken for this frame_hand: {}".format(t_end - t_begin)
         avg_frame_time += (t_end - t_begin)
         timestamp, frame_type, width, height, posx, posy, depth_data = decode_frame(f)
         print timestamp, frame_type, width, height,

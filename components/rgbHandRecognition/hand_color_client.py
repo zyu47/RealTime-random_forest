@@ -49,7 +49,7 @@ def decode_frame_openpose(raw_frame):
     # Expect little endian byte order
     endianness = "<"
 
-    # [ commonTimestamp | frame type (0 => LH; 1 => RH)| img_width | img_height ]
+    # [ commonTimestamp | frame_hand type (0 => LH; 1 => RH)| img_width | img_height ]
     header_format = "qiHH"
     header_size = struct.calcsize(endianness + header_format)
     timestamp, frame_type, width, height = struct.unpack(endianness + header_format,
@@ -77,7 +77,7 @@ def recv_all(sock, size):
 
 def recv_color_frame(sock):
     """
-    Experimental function to read each stream frame from the server
+    Experimental function to read each stream frame_hand from the server
     """
     (frame_size,) = struct.unpack("<i", recv_all(sock, 4))
     return recv_all(sock, frame_size) 

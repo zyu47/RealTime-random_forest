@@ -150,7 +150,7 @@ class Pointing:
     def _get_wrist_elbow(self, src):
         '''
         This function retrieves the coordinates for left/right wrists/elbows (4 sets of 3 values: x, y, z)
-        @:param src: decoded frame retrieved from the decode_frame() function
+        @:param src: decoded frame_hand retrieved from the decode_frame() function
         '''
         try:
             for i in range(25):

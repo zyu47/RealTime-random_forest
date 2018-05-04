@@ -77,6 +77,7 @@ class Fusion(threading.Thread):
             hand_type = 'left'
         elif hand == 'RH':
             hand_type = 'right'
+            # print(hand_data)
         else:
             raise ValueError('hand must be either LH or RH: ' + hand)
         return Fusion.HandData(hand_data[0], hand_data[1:], hand_type)
@@ -229,7 +230,7 @@ class Fusion(threading.Thread):
                             if len(self._msgs_received[sync_ts]) == streams.get_active_streams_count():
                                 # Create a shared data object representing the synced data
                                 # Indexed by stream type
-                                # Value is the entire decoded frame of that stream type
+                                # Value is the entire decoded frame_hand of that stream type
                                 #print "Timestamp contains all data"
                                 s_msg = {}
                                 for m in self._msgs_received[sync_ts]:

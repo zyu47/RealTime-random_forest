@@ -1,14 +1,14 @@
 import sys, struct
 from ..fusion.conf.endpoints import connect
 
-# Timestamp | frame type | command_length | command
+# Timestamp | frame_hand type | command_length | command
 def decode_frame(raw_frame):
     
     # Expect little endian byte order
     endianness = "<"
 
-    # In each frame, a header is transmitted
-    # Timestamp | frame type | command_length
+    # In each frame_hand, a header is transmitted
+    # Timestamp | frame_hand type | command_length
     header_format = "qii"
     
     header_size = struct.calcsize(endianness + header_format)
@@ -35,7 +35,7 @@ def recv_all(sock, size):
 
 def recv_speech_frame(sock):
     """
-    Experimental function to read each stream frame from the server
+    Experimental function to read each stream frame_hand from the server
     """
     (frame_size,) = struct.unpack("<i", recv_all(sock, 4))
     #print frame_size
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         try:
             frame = recv_speech_frame(k)
         except:
-            print "Unable to receive speech frame"
+            print "Unable to receive speech frame_hand"
             break
         timestamp, frame_type, command_length, command = decode_frame(frame)
         if command_length > 0:
@@ -62,7 +62,7 @@ if __name__ == '__main__':
             print "\n\n"
         if f is not None:
             try:
-                # Excluding frame size
+                # Excluding frame_hand size
                 f.sendall(struct.pack("<iqi" + str(len(command)) + "s", frame_type, timestamp, command_length, command))
             except:
                 print "Error: Connection to fusion lost"

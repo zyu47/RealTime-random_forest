@@ -15,7 +15,7 @@ def decode_frame(raw_frame):
     # Expect network byte order
     endianness = "<"
 
-    # In each frame, a header is transmitted
+    # In each frame_hand, a header is transmitted
     header_format = "qiiiff"
     header_size = struct.calcsize(endianness + header_format)
     header = struct.unpack(endianness + header_format, raw_frame[:header_size])
@@ -42,7 +42,7 @@ def recv_all(sock, size):
 
 def recv_depth_frame(sock):
     """
-    Experimental function to read each stream frame from the server
+    Experimental function to read each stream frame_hand from the server
     """
     (frame_size,) = struct.unpack("<i", recv_all(sock, 4))
     return recv_all(sock, frame_size)

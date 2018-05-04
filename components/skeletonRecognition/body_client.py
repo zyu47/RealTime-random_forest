@@ -153,7 +153,7 @@ def decode_frame(raw_frame):
     # Expect little endian byte order
     endianness = "<"
 
-    # [ commonTimestamp | frame type | Tracked body count | Engaged
+    # [ commonTimestamp | frame_hand type | Tracked body count | Engaged
     header_format = "qiBB"
 
     timestamp, frame_type, tracked_body_count, engaged = struct.unpack(endianness + header_format,
@@ -169,7 +169,7 @@ def decode_frame(raw_frame):
 
     frame_format = body_format + (joint_format * 25)
 
-    # Unpack the raw frame into individual pieces of data as a tuple
+    # Unpack the raw frame_hand into individual pieces of data as a tuple
     frame_pieces = struct.unpack(endianness + (frame_format * engaged), raw_frame[struct.calcsize(header_format):])
 
     decoded = (timestamp, frame_type, tracked_body_count, engaged) + frame_pieces
@@ -189,7 +189,7 @@ def recv_all(sock, size):
 
 def recv_skeleton_frame(sock):
     """
-    To read each stream frame from the server
+    To read each stream frame_hand from the server
     """
     (load_size,) = struct.unpack("<i", recv_all(sock, struct.calcsize("<i")))
     # print load_size
@@ -286,7 +286,7 @@ if __name__ == '__main__':
                 data = np.vstack([extract_data(frame, rgb) for frame in data_stream])
 
                 if wave_flag and lstm:
-                    #Processing the GRU Classification for the 15 frame window
+                    #Processing the GRU Classification for the 15 frame_hand window
                     pruned_data_for_solver = prune_joints(data, body_part='arms', rgb=rgb)
                     if rgb:
                         assert pruned_data_for_solver.shape == (15, 10)
@@ -311,11 +311,7 @@ if __name__ == '__main__':
                         active_arm = check_active_arm(pruned_data, rgb=rgb) #Confirm shoulder-elbow or shoulder-wrist and return respectively
 
                         if active_arm:
-                            wave = check_wave_motion(pruned_data, rgb=rgb)
-                            if not wave:
-                                arm_motion_label, motion_encoding, probabilities = calculate_direction(pruned_data, body_part=body_part, rgb=rgb)
-                            else:
-                                arm_motion_label, motion_encoding, probabilities = 'wave', 31, [0]*6
+                            arm_motion_label, motion_encoding, probabilities = calculate_direction(pruned_data, body_part=body_part, rgb=rgb)
                         else:
                             arm_motion_label, motion_encoding, probabilities = 'blind', 32, [0]*6
 

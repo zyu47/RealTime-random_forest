@@ -30,7 +30,7 @@ class Forest:
         """
 
         # first normalize the samples
-        self.sample_dim = len(np.array(samples[0]).shape)  # if frame, ==1; if clip, ==2
+        self.sample_dim = len(np.array(samples[0]).shape)  # if frame_hand, ==1; if clip, ==2
         samples_norm = self._normalize_sample(samples)
 
         for i in range(n_trees):
@@ -65,6 +65,7 @@ class Forest:
         """
         samples_norm = self._normalize_sample(samples)
         best_labels = [-2 for i in range(samples_norm.shape[0])]
+        closest_dist = None
         # details = []
         for i, s in enumerate(samples_norm):
             # details.append([])

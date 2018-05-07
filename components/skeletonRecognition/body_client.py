@@ -244,7 +244,7 @@ if __name__ == '__main__':
 
     wave_flag = False
 
-    point = Pointing()
+    point = Pointing(pointing_mode='screen')
 
 
     while True:
@@ -267,7 +267,7 @@ if __name__ == '__main__':
             lpoint, rpoint = [0.0, 0.0], [0.0, 0.0]
         else:
             if wave_flag:
-                point.get_pointing_main(fd, pointing_mode=pointing_mode)
+                point.get_pointing_main(fd)
                 lpoint, rpoint = point.lpoint, point.rpoint
                 lvar, rvar = point.lpoint_var, point.rpoint_var
 

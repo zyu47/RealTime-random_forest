@@ -1,16 +1,19 @@
-'''
-# import socket
-# import struct
-# import matplotlib.pyplot as plt
-# import time
-# from matplotlib.animation import FuncAnimation
-# import threading
+import socket
+import struct
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+from matplotlib.animation import FuncAnimation
+import threading
+import sys
+from scipy.signal import savgol_filter
 
-#src_addr = '129.82.45.102'
-src_addr = '127.0.0.1'
+src_addr = '129.82.45.102'
+# src_addr = '127.0.0.1'
 src_port = 8000
 
-stream_id = 32;
+stream_id = 32
+
 
 def connect():
     """
@@ -26,7 +29,7 @@ def connect():
         return None
     try:
         print("Sending stream info")
-        sock.sendall(struct.pack('<i', stream_id));
+        sock.sendall(struct.pack('<i', stream_id))
     except:
         print("Error: Stream rejected")
         return None
@@ -43,7 +46,8 @@ def decode_frame(raw_frame):
     # [ commonTimestamp | frame type | Tracked body count | Engaged
     header_format = "qiBB"
 
-    timestamp, frame_type, tracked_body_count, engaged = struct.unpack(endianness + header_format, raw_frame[:struct.calcsize(header_format)])
+    timestamp, frame_type, tracked_body_count, engaged = struct.unpack(endianness + header_format,
+                                                                       raw_frame[:struct.calcsize(header_format)])
 
     # For each body, a header is transmitted
     # TrackingId | HandLeftConfidence | HandLeftState | HandRightConfidence | HandRightState ]
@@ -55,10 +59,10 @@ def decode_frame(raw_frame):
 
     frame_format = body_format + (joint_format * 25)
 
-    
     # Unpack the raw frame into individual pieces of data as a tuple
-    frame_pieces = struct.unpack(endianness + (frame_format * (1 if engaged else 0)), raw_frame[struct.calcsize(header_format):])
-    
+    frame_pieces = struct.unpack(endianness + (frame_format * (1 if engaged else 0)),
+                                 raw_frame[struct.calcsize(header_format):])
+
     decoded = (timestamp, frame_type, tracked_body_count, engaged) + frame_pieces
 
     return decoded
@@ -79,23 +83,34 @@ def recv_skeleton_frame(sock):
     To read each stream frame from the server
     """
     (load_size,) = struct.unpack("<i", recv_all(sock, struct.calcsize("<i")))
-    #print load_size
+    # print load_size
     return recv_all(sock, load_size)
-'''
-import numpy as np
-from scipy.signal import savgol_filter
 
 
 # following codes get the elbow and wrist information from the kinect sensor
 class Pointing:
-    def __init__(self):
-        self.screen_mode = None  # whether it is in screen mode
+    def __init__(self, pointing_mode='screen'):
+        if pointing_mode == 'screen':
+            self.screen_mode = True
+        elif pointing_mode == 'desk':
+            self.screen_mode = False
+        else:
+            raise ValueError('Pointing mode is not recognized!\n Accepted: screen, desk\n Received: %s' % pointing_mode)
 
-        self.WRISTLEFT = 6  # JointType specified by kinect
-        self.WRISTRIGHT = 10
-        self.ELBOWLEFT = 5
-        self.ELBOWRIGHT = 9
-        self.joint_interest_coded = [self.WRISTLEFT, self.WRISTRIGHT, self.ELBOWLEFT, self.ELBOWRIGHT]
+        if not self.screen_mode:
+            # use this if in desk mode
+            self.WRISTLEFT = 6  # JointType specified by kinect
+            self.WRISTRIGHT = 10
+            self.ELBOWLEFT = 5
+            self.ELBOWRIGHT = 9
+            self.joint_interest_coded = [self.WRISTLEFT, self.WRISTRIGHT, self.ELBOWLEFT, self.ELBOWRIGHT]
+        else:
+            # use this if in screen mode
+            self.HANDTIPLEFT = 21  # JointType specified by kinect
+            self.HANDTIPRIGHT = 23
+            self.SHOULDERLEFT = 4
+            self.SHOULDERRIGHT = 8
+            self.joint_interest_coded = [self.HANDTIPLEFT, self.HANDTIPRIGHT, self.SHOULDERLEFT, self.SHOULDERRIGHT]
 
         self.joint_info = {i: None for i in self.joint_interest_coded}  # contains left/right wrists/elbows coordinates
         self.joint_info_buffer = {i: [] for i in self.joint_interest_coded}
@@ -110,13 +125,7 @@ class Pointing:
         self.lpoint_var = (0, 0)  # variance of left point, sent to Brandeis
         self.rpoint_var = (0, 0)  # variance of right point, sent to Brandeis
 
-    def get_pointing_main(self, src, pointing_mode='screen', is_smoothing_joint=True, is_smoothing_point=True):
-        if pointing_mode == 'screen':
-            self.screen_mode = True
-        elif pointing_mode == 'desk':
-            self.screen_mode = False
-        else:
-            raise ValueError('Pointing mode is not recognized!\n Accepted: screen, desk\n Received: %s' % pointing_mode)
+    def get_pointing_main(self, src, is_smoothing_joint=True, is_smoothing_point=True):
 
         if not self._get_wrist_elbow(src):
             return
@@ -150,7 +159,7 @@ class Pointing:
     def _get_wrist_elbow(self, src):
         '''
         This function retrieves the coordinates for left/right wrists/elbows (4 sets of 3 values: x, y, z)
-        @:param src: decoded frame_hand retrieved from the decode_frame() function
+        @:param src: decoded frame retrieved from the decode_frame() function
         '''
         try:
             for i in range(25):
@@ -219,13 +228,19 @@ class Pointing:
             self.rpoint_buffer.append(self.rpoint_tmp)
 
     def _get_pointing(self, screen=True):
-        lwrist = self.joint_info[self.WRISTLEFT]
-        rwrist = self.joint_info[self.WRISTRIGHT]
-        lelbow = self.joint_info[self.ELBOWLEFT]
-        relbow = self.joint_info[self.ELBOWRIGHT]
+        if not screen:
+            l_coord1 = self.joint_info[self.WRISTLEFT]
+            r_coord1 = self.joint_info[self.WRISTRIGHT]
+            l_coord2 = self.joint_info[self.ELBOWLEFT]
+            r_coord2 = self.joint_info[self.ELBOWRIGHT]
+        else:
+            l_coord1 = self.joint_info[self.HANDTIPLEFT]
+            r_coord1 = self.joint_info[self.HANDTIPRIGHT]
+            l_coord2 = self.joint_info[self.SHOULDERLEFT]
+            r_coord2 = self.joint_info[self.SHOULDERRIGHT]
 
-        self.lpoint_tmp = self._calc_coordinates(lwrist, lelbow, screen)
-        self.rpoint_tmp = self._calc_coordinates(rwrist, relbow, screen)
+        self.lpoint_tmp = self._calc_coordinates(l_coord1, l_coord2, screen)
+        self.rpoint_tmp = self._calc_coordinates(r_coord1, r_coord2, screen)
 
     def _calc_coordinates(self, wrist, elbow, screen=True):
         if screen:
@@ -275,3 +290,61 @@ class Pointing:
                 self.joint_info[k] = np.mean(self.joint_info_buffer[k], axis=0)
             else:
                 self.joint_info_buffer[k].append(self.joint_info[k])
+
+    def test_run(self):
+        """
+        Start a thread for testing purpose only
+        """
+        threading.Thread(target=self.update_point).start()
+
+    def update_point(self):
+        """
+        Connect to the kinect server and get the coordinate
+        Used for testing only
+        Use
+        """
+        s = connect()
+        if s is None:
+            sys.exit(0)
+        while True:
+            try:
+                f = recv_skeleton_frame(s)
+                self.get_pointing_main(decode_frame(f))
+                print(p.lpoint, p.rpoint)
+            except Exception as e:
+                print(e)
+                s.close()
+                break
+
+
+if __name__ == '__main__':
+    p = Pointing('desk')
+    p.test_run()
+    # Plot where the pointing position is on the table
+    # The table has a width of (-1,1) and depth of (1.0, 1.6)
+    fig = plt.figure(figsize=(7, 7))
+    ax = fig.add_subplot(111)
+
+
+    def animate(i):
+        ax.clear()
+        if p.screen_mode:
+            ax.set_xlim(-1, 1)  # screen_x
+            ax.set_ylim(0.3, -1)  # screen_y
+        else:
+            ax.set_xlim(-1, 1)  # width of the table, ie table_x
+            ax.set_ylim(0, 1.6)  # length of the table, ie table_z
+        plt.gca().invert_yaxis()
+        # llabel = '(%.2f,     %.2f)' % (p.lpoint[0], p.lpoint[1])
+        # rlabel = '(%.2f,     %.2f)' % (p.rpoint[0], p.rpoint[1])
+        # ax.plot(p.lpoint[0], p.lpoint[1], 'bo', label=llabel)
+        # ax.plot(p.rpoint[0], p.rpoint[1], 'ro', label=rlabel)
+        # plt.legend(prop={'size': 35})
+        circle_l = plt.Circle(p.lpoint, np.mean(p.lpoint_var) * 2, color='b')
+        circle_r = plt.Circle(p.rpoint, np.mean(p.rpoint_var) * 2, color='r')
+        ax.add_artist(circle_l)
+        ax.add_artist(circle_r)
+
+
+    ani = FuncAnimation(fig, animate)
+    plt.show()

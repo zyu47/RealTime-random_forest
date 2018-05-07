@@ -3,9 +3,11 @@ import time
 from skimage.transform import resize, rotate
 import sys
 import numpy as np
+import os
+import dill
 
 from realtime_hand_recognition import RealTimeHandRecognition
-from RandomForest.forest import Forest
+from . import RandomForest
 
 from ..fusion.conf.endpoints import connect
 from ..fusion.conf import streams
@@ -101,6 +103,8 @@ def img_aug(in_hand):
 # By default read 100 frames
 if __name__ == '__main__':
 
+    sys.modules['RandomForest'] = RandomForest  # To load the pickle
+
     hand = sys.argv[1]
     stream_id = streams.get_stream_id(hand)
     gestures = list(np.load("/s/red/a/nobackup/cwc/hands/real_time_training_data/%s/gesture_list.npy" % hand))
@@ -111,13 +115,19 @@ if __name__ == '__main__':
     print hand, num_gestures
 
     hand_classfier = RealTimeHandRecognition(hand, num_gestures)
-    forest = Forest()
 
-    training_fea_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_features_%s.npy' % hand
-    samples = np.load(training_fea_path)
-    training_label_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_labels_%s.npy' % hand
-    labels = np.load(training_label_path)
-    forest.build_forest(samples, labels, n_trees=10)
+    load_path = os.path.join('/s/red/a/nobackup/vision/jason/forest', '%s_forest.pickle' % hand)
+    f = open(load_path, 'rb')
+    forest = dill.load(f)
+    f.close()
+    # forest = Forest()
+    # forest = Forest.load_forest('%s_forest' % hand)
+
+    # training_fea_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_features_%s.npy' % hand
+    # samples = np.load(training_fea_path)
+    # training_label_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_labels_%s.npy' % hand
+    # labels = np.load(training_label_path)
+    # forest.build_forest(samples, labels, n_trees=10)
 
     kinect_socket_hand = connect('kinect', hand)
     kinect_socket_speech = connect('kinect', 'Speech')
@@ -159,7 +169,7 @@ if __name__ == '__main__':
             hand = hand[20:-20, 20:-20]
             hand = hand.reshape((1, 128, 128, 1))
             feature = hand_classfier.classify(hand)
-            found_index, dist = forest.find_nn(feature, method=0)
+            found_index, _ = forest.find_nn(feature)
             max_index = found_index[0]
             probs[max_index] = 1
 

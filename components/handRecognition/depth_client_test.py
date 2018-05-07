@@ -1,15 +1,16 @@
 import struct
-# import time
+import time
 from skimage.transform import resize, rotate
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
+import os
+import dill
 
-# from realtime_hand_recognition import RealTimeHandRecognition
-# from RandomForest.forest import Forest
+from realtime_hand_recognition import RealTimeHandRecognition
+from . import RandomForest
 
 from ..fusion.conf.endpoints import connect
-# from ..fusion.conf import streams
+from ..fusion.conf import streams
 
 
 # timestamp (long) | depth_hands_count(int) | left_hand_height (int) | left_hand_width (int) |
@@ -76,110 +77,115 @@ def recv_frame(sock):
     return recv_all(sock, frame_size)
 
 
+def is_learn(frame_speech):
+    timestamp, frame_type, command_length, command = decode_frame_speech(frame_speech)
+    if command_length > 0:
+        print timestamp, frame_type, command
+        print "\n\n"
+    if 'LEARN' in command:
+        print('*'*100)
+        print('Confirm to Learn!')
+        print('*'*100)
+        return True
+
+
+def img_aug(in_hand):
+    result = []
+    for i in [5, 10, 15, -5, -10, -15]:
+        hand_new = rotate(in_hand, i, clip=False, preserve_range=True)
+        hand_new = hand_new[20:-20, 20:-20]
+        hand_new = hand_new.reshape((1, 128, 128, 1))
+        feature_new = hand_classfier.classify(hand_new)
+        result.append(feature_new[0])
+    return result
+
+
 # By default read 100 frames
 if __name__ == '__main__':
 
+    sys.modules['RandomForest'] = RandomForest  # To load the pickle
+
     hand = sys.argv[1]
-    # stream_id = streams.get_stream_id(hand)
-    # gestures = list(np.load("/s/red/a/nobackup/cwc/hands/real_time_training_data/%s/gesture_list.npy" % hand))
-    # gestures = [g.replace(".npy", "") for g in gestures]
-    # num_gestures = len(gestures)
-    #
-    # gestures += ['blind']
-    # print hand, num_gestures
-    #
-    # hand_classfier = RealTimeHandRecognition(hand, num_gestures)
+    stream_id = streams.get_stream_id(hand)
+    gestures = list(np.load("/s/red/a/nobackup/cwc/hands/real_time_training_data/%s/gesture_list.npy" % hand))
+    gestures = [g.replace(".npy", "") for g in gestures]
+    num_gestures = len(gestures)
+
+    gestures += ['blind']
+    print hand, num_gestures
+
+    hand_classfier = RealTimeHandRecognition(hand, num_gestures)
+
+    load_path = os.path.join('/s/red/a/nobackup/vision/jason/forest', '%s_forest.pickle' % hand)
+    f = open(load_path, 'rb')
+    forest = dill.load(f)
+    f.close()
     # forest = Forest()
-    #
-    # samples = np.load('/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_features.npy')
-    # labels = np.load('/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_labels.npy')
+    # forest = Forest.load_forest('%s_forest' % hand)
+
+    # training_fea_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_features_%s.npy' % hand
+    # samples = np.load(training_fea_path)
+    # training_label_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_labels_%s.npy' % hand
+    # labels = np.load(training_label_path)
     # forest.build_forest(samples, labels, n_trees=10)
 
     kinect_socket_hand = connect('kinect', hand)
-    # kinect_socket_speech = connect('kinect', 'Speech')
-    # fusion_socket = connect('fusion', hand)
+    fusion_socket = None
 
     # the first speech frame usually has noise, ignore first frame speech
     frame_hand = recv_frame(kinect_socket_hand)
-    # frame_speech = recv_frame(kinect_socket_speech)
 
-    # i = 0
-    # hands_list = []
-
-    # start_time = time.time()
+    frame_num_learned = 0  # Number of frames that have already been added into forest
+    new_hand = None  # save a copy of hand frame for data augmentation
+    # f = open('./log.txt', 'w')
     while True:
         try:
-            frame_hand = recv_frame(kinect_socket_hand)
-            # frame_speech = recv_frame(kinect_socket_speech)
+            frame = recv_frame(kinect_socket_hand)
         except KeyboardInterrupt:
            break
         except:
             continue
 
-        timestamp, frame_type, width, height, posx, posy, depth_data = decode_frame_hand(frame_hand)
-        # timestamp, frame_type, command_length, command = decode_frame_speech(frame_speech)
-        # if command_length > 0:
-        #     print timestamp, frame_type, command
-        #     print "\n\n"
-        # if command == 'LEARN':
-        #     print('I learned!')
-        #
-        # probs = [0] * num_gestures  # probabilities to send to fusion
+        # Process depth images
+        timestamp, frame_type, width, height, posx, posy, depth_data = decode_frame_hand(frame)
+        feature = None
+
+        probs = [0] * num_gestures  # probabilities to send to fusion
 
         if posx == -1 and posy == -1:
-            # probs += [1]
-            # max_index = len(probs)-1
-            continue
+            probs += [1]
+            max_index = len(probs)-1
         else:
             hand = np.array(depth_data, dtype=np.float32).reshape((height, width))
-            # print hand.shape, posx, posy
             posz = hand[int(posx), int(posy)]
             hand -= posz
             hand /= 150
             hand = np.clip(hand, -1, 1)
             hand = resize(hand, (168, 168))
-            new_hand = rotate(hand, 90, clip=False, preserve_range=True)
+            new_hand = np.copy(hand)
             hand = hand[20:-20, 20:-20]
-            # hand = hand.reshape((1, 128, 128, 1))
-            new_hand = new_hand[20:-20, 20:-20]
-            print(np.amin(new_hand), np.amax(new_hand))
-            print(np.amin(hand), np.amax(hand))
-            # new_hand = new_hand.reshape((1, 128, 128, 1))
+            hand = hand.reshape((1, 128, 128, 1))
+            feature = hand_classfier.classify(hand)
+            found_index, _ = forest.find_nn(feature)
+            max_index = found_index[0]
+            probs[max_index] = 1
 
-            plt.subplot(121)
-            plt.imshow(hand, cmap='Greys')
-            plt.subplot(122)
-            plt.imshow(new_hand, cmap='Greys')
-            plt.savefig('./test1.png')
-            break
-    #         if sys.argv[1] == 'RH':
-    #             feature = hand_classfier.classify(hand, hands='RH')
-    #             found_index, dist = forest.find_nn(feature)
-    #             max_index = found_index[0]
-    #             probs[max_index] = 1
-    #             # print(probs)
-    #         else:
-    #             max_index, probs = hand_classfier.classify(hand)
-    #
-    #         probs = list(probs)+[0]
-    #
-    #         # print i, timestamp, gestures[max_index], probs[max_index]
-    #     # i += 1
-    #     #
-    #     # if i % 100==0:
-    #     #     # print "="*100, "FPS", 100/(time.time()-start_time)
-    #     #     print('Time for 30 frames', (time.time()-start_time)*0.3)
-    #     #     start_time = time.time()
-    #
-    #     pack_list = [stream_id, timestamp, max_index]+list(probs)
-    #
-    #     bytes = struct.pack("<iqi"+"f"*(num_gestures+1), *pack_list)
-    #
-    #     if fusion_socket is not None:
-    #         fusion_socket.send(bytes)
-    #
-    # kinect_socket_hand.close()
-    # if fusion_socket is not None:
-    #     fusion_socket.close()
-    # sys.exit(0)
-    #
+            probs = list(probs)+[0]
+
+
+
+        print timestamp, gestures[max_index], probs[max_index]
+
+        pack_list = [stream_id, timestamp, max_index] + list(probs)
+
+        # send to fusion
+        bytes = struct.pack("<iqi"+"f"*(num_gestures+1), *pack_list)
+
+        if fusion_socket is not None:
+            fusion_socket.send(bytes)
+
+    kinect_socket_hand.close()
+    if fusion_socket is not None:
+        fusion_socket.close()
+    sys.exit(0)
+

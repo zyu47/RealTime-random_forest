@@ -133,13 +133,13 @@ class Pointing:
         if self.screen_mode:
             try:
                 if is_smoothing_joint:
-                    self._smoothing_joint(11, 2)
-                    self._smoothing_joint_mean(11)
+                    self._smoothing_joint(5, 2)
+                    self._smoothing_joint_mean(5)
                 self._get_pointing(True)  # True is coordinates on screen
                 if is_smoothing_point:
                     pass
-                    self._smoothing_point_mean(11)
-                    self._smoothing_point(11, 2)
+                    self._smoothing_point_mean(5)
+                    self._smoothing_point(5, 2)
                 self.lpoint = (self.lpoint_tmp[0] - 0.25, self.lpoint_tmp[1])
                 self.rpoint = (self.rpoint_tmp[0] + 0.25, self.rpoint_tmp[1])
             except Exception as e:

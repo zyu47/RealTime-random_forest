@@ -3,7 +3,7 @@ try:
 except ImportError:
     from tree import Tree
 import numpy as np
-import dill
+import pickle
 import os
 
 frame_per_clip = 15
@@ -30,7 +30,7 @@ class Forest:
 
         load_path = os.path.join(load_dir, file_name + '.pickle')
         f = open(load_path, 'rb')
-        loaded = dill.load(f)
+        loaded = pickle.load(f)
         f.close()
 
         return loaded
@@ -48,7 +48,7 @@ class Forest:
 
         save_path = os.path.join(save_dir, file_name + '.pickle')
         f = open(save_path, 'wb')
-        dill.dump(self, f)
+        pickle.dump(self, f)
         f.close()
 
     def build_forest(self, samples, labels, n_trees=50, verbose=True):
@@ -100,7 +100,7 @@ class Forest:
         samples_norm = self._normalize_sample(samples)
         best_labels = [-2] * samples_norm.shape[0]
         # (feature_dim*10)  is used as upper bound of distance, actual distance could be smaller
-        closest_dists = [feature_dim*10] * samples_norm.shape[0]
+        closest_dists = [feature_dim] * samples_norm.shape[0]
         for i, s in enumerate(samples_norm):
             for t in self.trees:
                 label, dist = t.find_nn_label(s)

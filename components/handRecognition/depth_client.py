@@ -4,7 +4,7 @@ from skimage.transform import resize, rotate
 import sys
 import numpy as np
 import os
-import dill
+import pickle
 
 from realtime_hand_recognition import RealTimeHandRecognition
 from . import RandomForest
@@ -116,10 +116,13 @@ if __name__ == '__main__':
 
     hand_classfier = RealTimeHandRecognition(hand, num_gestures)
 
+    # load random forest classifier
     load_path = os.path.join('/s/red/a/nobackup/vision/jason/forest', '%s_forest.pickle' % hand)
+    print('Loading random forest checkpoint: %s' % load_path)
     f = open(load_path, 'rb')
-    forest = dill.load(f)
+    forest = pickle.load(f)
     f.close()
+    print('%s forest loaded!' % hand)
     # forest = Forest()
     # forest = Forest.load_forest('%s_forest' % hand)
 
@@ -169,9 +172,9 @@ if __name__ == '__main__':
             hand = hand[20:-20, 20:-20]
             hand = hand.reshape((1, 128, 128, 1))
             feature = hand_classfier.classify(hand)
-            found_index, _ = forest.find_nn(feature)
+            found_index, dist = forest.find_nn(feature)
             max_index = found_index[0]
-            probs[max_index] = 1
+            probs[max_index] = (0.5 - dist[0]/2046.0)  # feature vector has a dimension of 1024, so dist[0]/1023/2
 
             probs = list(probs)+[0]
 

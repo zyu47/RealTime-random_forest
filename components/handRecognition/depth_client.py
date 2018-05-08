@@ -123,15 +123,8 @@ if __name__ == '__main__':
     forest = pickle.load(f)
     f.close()
     print('%s forest loaded!' % hand)
-    # forest = Forest()
-    # forest = Forest.load_forest('%s_forest' % hand)
 
-    # training_fea_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_features_%s.npy' % hand
-    # samples = np.load(training_fea_path)
-    # training_label_path = '/s/red/a/nobackup/vision/jason/DraperLab/one_shot_learning/random_forest/result_for_final/training_labels_%s.npy' % hand
-    # labels = np.load(training_label_path)
-    # forest.build_forest(samples, labels, n_trees=10)
-
+    # Connect to servers
     kinect_socket_hand = connect('kinect', hand)
     kinect_socket_speech = connect('kinect', 'Speech')
     fusion_socket = connect('fusion', hand)
@@ -142,7 +135,6 @@ if __name__ == '__main__':
 
     frame_num_learned = 0  # Number of frames that have already been added into forest
     new_hand = None  # save a copy of hand frame for data augmentation
-    # f = open('./log.txt', 'w')
     while True:
         try:
             frame = recv_frame(kinect_socket_hand)
@@ -168,7 +160,7 @@ if __name__ == '__main__':
             hand /= 150
             hand = np.clip(hand, -1, 1)
             hand = resize(hand, (168, 168))
-            new_hand = np.copy(hand)
+            new_hand = np.copy(hand)  # used for data augmentation
             hand = hand[20:-20, 20:-20]
             hand = hand.reshape((1, 128, 128, 1))
             feature = hand_classfier.classify(hand)
@@ -178,25 +170,18 @@ if __name__ == '__main__':
 
             probs = list(probs)+[0]
 
-
-
         # Process learning
         if is_learn(frame_speech) and feature is not None and sys.argv[1] == 'RH':
             frame_num_learned += 1
 
         if 1 < frame_num_learned <= 61:
             if frame_num_learned % 3 == 0:  # learn every other frame
-                start = time.time()
-                # f.write(str(time.time()) + '\t' + str(frame_num_learned)+'\n')
                 print ('-'*100, str(frame_num_learned), '-'*100)
                 new_features = img_aug(new_hand)
                 new_features.append(feature[0])
                 forest.add_new(new_features, [4]*len(new_features))   # add a new gesture for claw_down
                 probs = [0] * num_gestures + [1]  # if learning, do not send to fusion
                 max_index = len(probs)-1
-                # f.write(str(time.time() - start) + '\t' + str(frame_num_learned)+'\n')
-            # if frame_num_learned == 61:
-            #     f.close()
             frame_num_learned += 1
         elif frame_num_learned != 1:
             frame_num_learned = 0
